@@ -5,7 +5,6 @@ using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 
 namespace WebApplication1.Controllers
@@ -18,59 +17,44 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public ActionResult<IEnumerable<string>> Get()
         {
-            getIndividualSearchList();
-            return new string[] { "value1", "value2" };
+            var result = sendGetRequest();
+            return new string[] { result };
         }
 
-        // GET api/values/5
-        [HttpGet("{id}")]
-        public ActionResult<string> Get(int id)
+        public string sendGetRequest()
         {
-            return "value";
-        }
+            var response = "";
+            string BaseUrl = "YOUR_SERVER_URL";
+            string cerPath = "public.crt.pem file path";
+            string cerKey = "private.key.pem file path";
+            string cerStream;
+            string keyStream;
 
-        // POST api/values
-        [HttpPost]
-        public void Post([FromBody] string value)
-        {
-        }
+            using (TextReader tr = new StreamReader(cerPath))
+            {
+                cerStream = tr.ReadToEnd();
+            }
 
-        // PUT api/values/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
-        {
-        }
+            using (TextReader tr = new StreamReader(cerKey))
+            {
+                keyStream = tr.ReadToEnd();
+            }
 
-        // DELETE api/values/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
-        }
-
-        public string getIndividualSearchList()
-        {
-            string BaseUrl = "https://sandbox.digitalhealth.gov.au/FhirServerR4-PDX";
-            string cerPath = "C:\\Users\\KasunGamage\\source\\repos\\WebApplication1\\WebApplication1\\Files\\public.crt.pem";
-            string cerKey = "C:\\Users\\KasunGamage\\source\\repos\\WebApplication1\\WebApplication1\\Files\\private.key.pem";
-            string result = "0";
-
-            // A PEM file must consist of a private key, A PEM encoded file includes Base64 data.
-
-            byte[] certBuffer = GetBytesFromPEM(cerPath, "CERTIFICATE");
-            byte[] keyBuffer = GetBytesFromPEM(cerKey, "PRIVATEKEY");
+            byte[] certBuffer = GetBytesFromPEM(cerStream, "CERTIFICATE");
+            byte[] keyBuffer = GetBytesFromPEM(keyStream, "PRIVATE KEY");
 
             X509Certificate2 certificate = new X509Certificate2(certBuffer);
 
-            RSACryptoServiceProvider prov = DecodeRSAPrivateKey(keyBuffer);
-            certificate.PrivateKey = prov;
+            RSA prov = DecodeRSAPkcs8(keyBuffer);
+            X509Certificate2 certWithPrivateKey = ExportCertificate(certificate, prov);
 
             string requestUri = BaseUrl + "/fhir/PractitionerRole?active=true&practitioner.family=Kidman&_include=PractitionerRole:practitioner&_include=PractitionerRole:location&_include=PractitionerRole:organization&_include=PractitionerRole:endpoint&_include=PractitionerRole:service";
 
             HttpWebRequest tRequest = (HttpWebRequest)WebRequest.Create(requestUri);
 
-            tRequest.ClientCertificates.Add(certificate);
+            tRequest.ClientCertificates.Add(certWithPrivateKey);
             tRequest.Method = "GET";
-            //tRequest.ContentType = "application/json";
+            tRequest.ContentType = "application/json";
 
             HttpWebResponse tResponse2 = (HttpWebResponse)tRequest.GetResponse();
 
@@ -81,171 +65,212 @@ namespace WebApplication1.Controllers
                     using (StreamReader tReader = new StreamReader(dataStreamResponse))
                     {
                         var sResponseFromServer = tReader.ReadToEnd();
-                        var str = sResponseFromServer;
+                        response = sResponseFromServer;
                     }
                 }
             }
 
-            return result;
+            return response;
+        }
+
+        private X509Certificate2 ExportCertificate(X509Certificate2 certificate, RSA prov)
+        {
+            using (X509Certificate2 certWithPrivateKey = certificate.CopyWithPrivateKey(prov))
+            {
+                return new X509Certificate2(certWithPrivateKey.Export(X509ContentType.Pkcs12));
+            }
+
         }
 
         byte[] GetBytesFromPEM(string pemString, string section)
         {
-            var header = String.Format("-----BEGIN {0}-----", section);
-            var footer = String.Format("-----END {0}-----", section);
+            //var header = String.Format("-----BEGIN {0}-----", section);
+            //var footer = String.Format("-----END {0}-----", section);
 
-            var start = pemString.IndexOf(header, StringComparison.Ordinal);
-            if (start < 0)
-                return null;
+            //var start = pemString.IndexOf(header, StringComparison.Ordinal);
+            //if (start < 0)
+            //    return null;
 
-            start += header.Length;
-            var end = pemString.IndexOf(footer, start, StringComparison.Ordinal) - start;
+            //start += header.Length;
+            //var end = pemString.IndexOf(footer, start, StringComparison.Ordinal) - start;
 
-            if (end < 0)
-                return null;
+            //if (end < 0)
+            //    return null;
 
-            return Convert.FromBase64String(pemString.Substring(start, end));
-        }
-       
-        static bool verbose = false;
+            //return Convert.FromBase64String(pemString.Substring(start, end));
+            string header; string footer;
 
-        public RSACryptoServiceProvider DecodeRSAPrivateKey(byte[] privkey)
-        {
-            byte[] MODULUS, E, D, P, Q, DP, DQ, IQ;
-
-            // --------- Set up stream to decode the asn.1 encoded RSA private key ------
-            MemoryStream mem = new MemoryStream(privkey);
-            BinaryReader binr = new BinaryReader(mem);  //wrap Memory Stream with BinaryReader for easy reading
-            byte bt = 0;
-            ushort twobytes = 0;
-            int elems = 0;
-            try
+            switch (section)
             {
-                twobytes = binr.ReadUInt16();
-                if (twobytes == 0x8130) //data read as little endian order (actual data order for Sequence is 30 81)
-                    binr.ReadByte();    //advance 1 byte
-                else if (twobytes == 0x8230)
-                    binr.ReadInt16();    //advance 2 bytes
-                else
+                case "CERTIFICATE":
+                    header = "-----BEGIN CERTIFICATE-----";
+                    footer = "-----END CERTIFICATE-----";
+                    break;
+                case "PRIVATE KEY":
+                    header = "-----BEGIN PRIVATE KEY-----";
+                    footer = "-----END PRIVATE KEY-----";
+                    break;
+                default:
                     return null;
+            }
 
-                twobytes = binr.ReadUInt16();
-                if (twobytes != 0x0102) //version number
-                    return null;
-                bt = binr.ReadByte();
-                if (bt != 0x00)
-                    return null;
+            int start = pemString.IndexOf(header) + header.Length;
+            int end = pemString.IndexOf(footer, start) - start;
+            return Convert.FromBase64String(pemString.Substring(start, end));
 
+        }
 
-                //------ all private key components are Integer sequences ----
-                elems = GetIntegerSize(binr);
-                MODULUS = binr.ReadBytes(elems);
+        private static readonly byte[] s_derIntegerZero = { 0x02, 0x01, 0x00 };
 
-                elems = GetIntegerSize(binr);
-                E = binr.ReadBytes(elems);
+        private static readonly byte[] s_rsaAlgorithmId =
+        {
+         0x30, 0x0D,
+         0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01,
+         0x05, 0x00,
+        };
 
-                elems = GetIntegerSize(binr);
-                D = binr.ReadBytes(elems);
+        private static int ReadLength(byte[] data, ref int offset)
+        {
+            byte lengthOrLengthLength = data[offset++];
 
-                elems = GetIntegerSize(binr);
-                P = binr.ReadBytes(elems);
+            if (lengthOrLengthLength < 0x80)
+            {
+                return lengthOrLengthLength;
+            }
 
-                elems = GetIntegerSize(binr);
-                Q = binr.ReadBytes(elems);
+            int lengthLength = lengthOrLengthLength & 0x7F;
+            int length = 0;
 
-                elems = GetIntegerSize(binr);
-                DP = binr.ReadBytes(elems);
-
-                elems = GetIntegerSize(binr);
-                DQ = binr.ReadBytes(elems);
-
-                elems = GetIntegerSize(binr);
-                IQ = binr.ReadBytes(elems);
-
-                Console.WriteLine("showing components ..");
-                if (verbose)
+            for (int i = 0; i < lengthLength; i++)
+            {
+                if (length > ushort.MaxValue)
                 {
-                    showBytes("\nModulus", MODULUS);
-                    showBytes("\nExponent", E);
-                    showBytes("\nD", D);
-                    showBytes("\nP", P);
-                    showBytes("\nQ", Q);
-                    showBytes("\nDP", DP);
-                    showBytes("\nDQ", DQ);
-                    showBytes("\nIQ", IQ);
+                    throw new InvalidOperationException("This seems way too big.");
                 }
 
-                // ------- create RSACryptoServiceProvider instance and initialize with public key -----
-                CspParameters CspParameters = new CspParameters();
-                CspParameters.Flags = CspProviderFlags.UseMachineKeyStore;
-                RSACryptoServiceProvider RSA = new RSACryptoServiceProvider(1024, CspParameters);
-                RSAParameters RSAparams = new RSAParameters();
+                length <<= 8;
+                length |= data[offset++];
+            }
 
-                RSAparams.Modulus = MODULUS;
-                RSAparams.Exponent = E;
-                RSAparams.D = D;
-                RSAparams.P = P;
-                RSAparams.Q = Q;
-                RSAparams.DP = DP;
-                RSAparams.DQ = DQ;
-                RSAparams.InverseQ = IQ;
-                RSA.ImportParameters(RSAparams);
-                return RSA;
-            }
-            catch (Exception ex)
-            {
-                return null;
-            }
-            finally
-            {
-                binr.Close();
-            }
+            return length;
         }
 
-        private static int GetIntegerSize(BinaryReader binr)
+        private static byte[] ReadUnsignedInteger(byte[] data, ref int offset, int targetSize = 0)
         {
-            byte bt = 0;
-            byte lowbyte = 0x00;
-            byte highbyte = 0x00;
-            int count = 0;
-            bt = binr.ReadByte();
-            if (bt != 0x02)     //expect integer
-                return 0;
-            bt = binr.ReadByte();
-
-            if (bt == 0x81)
-                count = binr.ReadByte();    // data size in next byte
-            else
-              if (bt == 0x82)
+            if (data[offset++] != 0x02)
             {
-                highbyte = binr.ReadByte(); // data size in next 2 bytes
-                lowbyte = binr.ReadByte();
-                byte[] modint = { lowbyte, highbyte, 0x00, 0x00 };
-                count = BitConverter.ToInt32(modint, 0);
-            }
-            else
-            {
-                count = bt;     // we already have the data size
+                throw new InvalidOperationException("Invalid encoding");
             }
 
-            while (binr.ReadByte() == 0x00)
-            {   //remove high order zeros in data
-                count -= 1;
+            int length = ReadLength(data, ref offset);
+
+            // Encoding rules say 0 is encoded as the one byte value 0x00.
+            // Since we expect unsigned, throw if the high bit is set.
+            if (length < 1 || data[offset] >= 0x80)
+            {
+                throw new InvalidOperationException("Invalid encoding");
             }
-            binr.BaseStream.Seek(-1, SeekOrigin.Current);       //last ReadByte wasn't a removed zero, so back up a byte
-            return count;
+
+            byte[] ret;
+
+            if (length == 1)
+            {
+                ret = new byte[length];
+                ret[0] = data[offset++];
+                return ret;
+            }
+
+            if (data[offset] == 0)
+            {
+                offset++;
+                length--;
+            }
+
+            if (targetSize != 0)
+            {
+                if (length > targetSize)
+                {
+                    throw new InvalidOperationException("Bad key parameters");
+                }
+
+                ret = new byte[targetSize];
+            }
+            else
+            {
+                ret = new byte[length];
+            }
+
+            Buffer.BlockCopy(data, offset, ret, ret.Length - length, length);
+            offset += length;
+            return ret;
         }
 
-        private static void showBytes(String info, byte[] data)
+        private static void EatFullPayloadTag(byte[] data, ref int offset, byte tagValue)
         {
-            Console.WriteLine("{0} [{1} bytes]", info, data.Length);
-            for (int i = 1; i <= data.Length; i++)
+            if (data[offset++] != tagValue)
             {
-                Console.Write("{0:X2} ", data[i - 1]);
-                if (i % 16 == 0)
-                    Console.WriteLine();
+                throw new InvalidOperationException("Invalid encoding");
             }
-            Console.WriteLine("\n\n");
+
+            int length = ReadLength(data, ref offset);
+
+            if (data.Length - offset != length)
+            {
+                throw new InvalidOperationException("Data does not represent precisely one value");
+            }
         }
+
+        private static void EatMatch(byte[] data, ref int offset, byte[] toMatch)
+        {
+            if (data.Length - offset > toMatch.Length)
+            {
+                if (data.Skip(offset).Take(toMatch.Length).SequenceEqual(toMatch))
+                {
+                    offset += toMatch.Length;
+                    return;
+                }
+            }
+
+            throw new InvalidOperationException("Bad data.");
+        }
+
+        private static RSA DecodeRSAPkcs8(byte[] pkcs8Bytes)
+        {
+            int offset = 0;
+
+            // PrivateKeyInfo SEQUENCE
+            EatFullPayloadTag(pkcs8Bytes, ref offset, 0x30);
+            // PKCS#8 PrivateKeyInfo.version == 0
+            EatMatch(pkcs8Bytes, ref offset, s_derIntegerZero);
+            // rsaEncryption AlgorithmIdentifier value
+            EatMatch(pkcs8Bytes, ref offset, s_rsaAlgorithmId);
+            // PrivateKeyInfo.privateKey OCTET STRING
+            EatFullPayloadTag(pkcs8Bytes, ref offset, 0x04);
+            // RSAPrivateKey SEQUENCE
+            EatFullPayloadTag(pkcs8Bytes, ref offset, 0x30);
+            // RSAPrivateKey.version == 0
+            EatMatch(pkcs8Bytes, ref offset, s_derIntegerZero);
+
+            RSAParameters rsaParameters = new RSAParameters();
+            rsaParameters.Modulus = ReadUnsignedInteger(pkcs8Bytes, ref offset);
+            rsaParameters.Exponent = ReadUnsignedInteger(pkcs8Bytes, ref offset);
+            rsaParameters.D = ReadUnsignedInteger(pkcs8Bytes, ref offset, rsaParameters.Modulus.Length);
+            int halfModulus = (rsaParameters.Modulus.Length + 1) / 2;
+            rsaParameters.P = ReadUnsignedInteger(pkcs8Bytes, ref offset, halfModulus);
+            rsaParameters.Q = ReadUnsignedInteger(pkcs8Bytes, ref offset, halfModulus);
+            rsaParameters.DP = ReadUnsignedInteger(pkcs8Bytes, ref offset, halfModulus);
+            rsaParameters.DQ = ReadUnsignedInteger(pkcs8Bytes, ref offset, halfModulus);
+            rsaParameters.InverseQ = ReadUnsignedInteger(pkcs8Bytes, ref offset, halfModulus);
+
+            if (offset != pkcs8Bytes.Length)
+            {
+                throw new InvalidOperationException("Something didn't add up");
+            }
+
+            RSA rsa = RSA.Create();
+            rsa.ImportParameters(rsaParameters);
+            return rsa;
+        }
+
     }
 }

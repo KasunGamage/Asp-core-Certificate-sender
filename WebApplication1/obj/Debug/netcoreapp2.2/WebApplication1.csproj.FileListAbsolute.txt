@@ -12,3 +12,17 @@ C:\Users\KasunGamage\source\repos\WebApplication1\WebApplication1\obj\Debug\netc
 C:\Users\KasunGamage\source\repos\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.RazorTargetAssemblyInfo.cache
 C:\Users\KasunGamage\source\repos\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.dll
 C:\Users\KasunGamage\source\repos\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.pdb
+D:\WebApplication1\WebApplication1\bin\Debug\netcoreapp2.2\WebApplication1.deps.json
+D:\WebApplication1\WebApplication1\bin\Debug\netcoreapp2.2\WebApplication1.runtimeconfig.json
+D:\WebApplication1\WebApplication1\bin\Debug\netcoreapp2.2\WebApplication1.runtimeconfig.dev.json
+D:\WebApplication1\WebApplication1\bin\Debug\netcoreapp2.2\WebApplication1.dll
+D:\WebApplication1\WebApplication1\bin\Debug\netcoreapp2.2\WebApplication1.pdb
+D:\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.csprojAssemblyReference.cache
+D:\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.csproj.CoreCompileInputs.cache
+D:\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.RazorAssemblyInfo.cache
+D:\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.RazorAssemblyInfo.cs
+D:\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.AssemblyInfoInputs.cache
+D:\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.AssemblyInfo.cs
+D:\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.RazorTargetAssemblyInfo.cache
+D:\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.dll
+D:\WebApplication1\WebApplication1\obj\Debug\netcoreapp2.2\WebApplication1.pdb
